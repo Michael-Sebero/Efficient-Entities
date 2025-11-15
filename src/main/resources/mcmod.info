@@ -1,0 +1,16 @@
+[
+{
+  "modid": "efficiententities",
+  "name": "Efficient Entities",
+  "description": "Dramatically improves entity rendering performance through batched draw calls and CPU-side matrix transformations.",
+  "version": "${version}",
+  "mcversion": "${mcversion}",
+  "url": "",
+  "updateUrl": "",
+  "authorList": ["Michael Sebero"],
+  "credits": "Cleanroom implementation based on community concepts",
+  "logoFile": "",
+  "screenshots": [],
+  "dependencies": []
+}
+]

@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "minVersion": "0.7",
+  "package": "com.michaelsebero.efficiententities.mixin",
+  "refmap": "mixins.efficiententities.refmap.json",
+  "compatibilityLevel": "JAVA_8",
+  "client": [
+    "MixinModelRenderer"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
