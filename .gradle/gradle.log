@@ -16,7 +16,19 @@ Version string 'V1' does not match SemVer specification
 You should try SemVer : http://semver.org/
 :clean
 :deobfCompileDummyTask
+:getVersionJson
+:extractUserdev UP-TO-DATE
+:downloadClient SKIPPED
+:downloadServer SKIPPED
+:splitServerJar SKIPPED
+:mergeJars SKIPPED
+:applyBinaryPatches SKIPPED
 :deobfProvidedDummyTask
+:extractDependencyATs SKIPPED
+:extractMcpData SKIPPED
+:extractMcpMappings SKIPPED
+:genSrgs SKIPPED
+:deobfMcMCP SKIPPED
 :sourceApiJava
 :compileApiJava UP-TO-DATE
 :processApiResources UP-TO-DATE
@@ -30,8 +42,10 @@ Note: ObfuscationServiceMCP supports type: "notch"
 Note: Loading searge mappings from /home/user/.gradle/caches/minecraft/de/oceanlabs/mcp/mcp_snapshot/20171003/1.12.2/srgs/mcp-srg.srg
 Note: Loading notch mappings from /home/user/.gradle/caches/minecraft/de/oceanlabs/mcp/mcp_snapshot/20171003/1.12.2/srgs/mcp-notch.srg
 Note: Writing refmap to /home/user/Files/GitHub/Efficient-Entities/build/tmp/compileJava/compileJava-refmap.json
+Note: Writing refmap to /home/user/Files/GitHub/Efficient-Entities/build/tmp/compileJava/compileJava-refmap.json
 Note: Writing searge output SRGs to /home/user/Files/GitHub/Efficient-Entities/build/tmp/compileJava/mcp-srg.srg
 Note: Writing notch output SRGs to /home/user/Files/GitHub/Efficient-Entities/build/tmp/compileJava/mcp-notch.srg
+Note: Writing refmap to /home/user/Files/GitHub/Efficient-Entities/build/tmp/compileJava/compileJava-refmap.json
 Note: Writing refmap to /home/user/Files/GitHub/Efficient-Entities/build/tmp/compileJava/compileJava-refmap.json
 Note: Writing searge output SRGs to /home/user/Files/GitHub/Efficient-Entities/build/tmp/compileJava/mcp-srg.srg
 Note: Writing notch output SRGs to /home/user/Files/GitHub/Efficient-Entities/build/tmp/compileJava/mcp-notch.srg
@@ -43,11 +57,6 @@ Note: Writing notch output SRGs to /home/user/Files/GitHub/Efficient-Entities/bu
 :processTestResources UP-TO-DATE
 :testClasses UP-TO-DATE
 :test UP-TO-DATE
-:extractMcpData SKIPPED
-:extractMcpMappings SKIPPED
-:getVersionJson
-:extractUserdev UP-TO-DATE
-:genSrgs SKIPPED
 :reobfJar
 :extractAnnotationsJar
 :assemble
@@ -56,4 +65,4 @@ Note: Writing notch output SRGs to /home/user/Files/GitHub/Efficient-Entities/bu
 
 BUILD SUCCESSFUL
 
-Total time: 6.619 secs
+Total time: 6.225 secs
