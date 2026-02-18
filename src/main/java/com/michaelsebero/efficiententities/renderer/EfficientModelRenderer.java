@@ -2,9 +2,12 @@ package com.michaelsebero.efficiententities.renderer;
 
 import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
+import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.Set;
+import java.util.WeakHashMap;
 import java.util.function.Supplier;
+
 
 import com.michaelsebero.efficiententities.EfficientEntities;
 import com.michaelsebero.efficiententities.opengl.GpuSync;
@@ -34,6 +37,12 @@ import org.lwjgl.opengl.GL44;
  * wrapped by the transformer. We handle these with {@link #inBatch}: if render() is
  * called outside a batch we auto-wrap that single call so the geometry still reaches
  * the screen.
+ *
+ * <h3>Child rendering</h3>
+ * Children are dispatched through {@code ModelRenderer.render()} rather than
+ * directly into this class so that {@code MixinModelRenderer} fires for every
+ * child part. This is what allows parts like the cow udder to fall back to the
+ * vanilla display-list path on a per-part basis while everything else is batched.
  */
 public class EfficientModelRenderer {
 
@@ -57,6 +66,35 @@ public class EfficientModelRenderer {
 
     // How often (in rendered frames) to log a throughput summary.
     private static final int LOG_INTERVAL_FRAMES = 200;
+
+    // ------------------------------------------------------------------ Vanilla renderer registry
+
+    /**
+     * Renderers that must be drawn by vanilla rather than the GPU-batched path.
+     * Populated at model construction time by {@link com.michaelsebero.efficiententities.mixin.MixinModelBox}.
+     *
+     * <p>Uses a {@link WeakHashMap}-backed set so entries are automatically
+     * collected when their {@link ModelRenderer} is garbage-collected alongside
+     * its owning entity model.
+     */
+    private static final Set<ModelRenderer> VANILLA_RENDERERS =
+        Collections.newSetFromMap(new WeakHashMap<>());
+
+    /**
+     * Marks {@code renderer} as a vanilla-fallback part.
+     * Called once per model instance from a model-specific mixin constructor inject.
+     */
+    public static void registerVanillaRenderer(ModelRenderer renderer) {
+        VANILLA_RENDERERS.add(renderer);
+    }
+
+    /**
+     * Returns {@code true} if {@code renderer} was registered as a vanilla part.
+     * Called from {@link com.michaelsebero.efficiententities.mixin.MixinModelRenderer}
+     */
+    public static boolean isVanillaRenderer(ModelRenderer renderer) {
+        return VANILLA_RENDERERS.contains(renderer);
+    }
 
     // ------------------------------------------------------------------ Singleton
 
@@ -86,9 +124,9 @@ public class EfficientModelRenderer {
 
     // ------------------------------------------------------------------ Diagnostics
 
-    private int frameCount       = 0;
-    private int batchesThisPeriod = 0;
-    private int cubesThisPeriod   = 0;
+    private int frameCount          = 0;
+    private int batchesThisPeriod   = 0;
+    private int cubesThisPeriod     = 0;
     private int autoWrapsThisPeriod = 0; // render() calls outside a batch (e.g. hand)
 
     // ------------------------------------------------------------------ Lifecycle
@@ -210,6 +248,11 @@ public class EfficientModelRenderer {
      * geometry into the VBO for the batch draw. If called <em>outside</em> a batch
      * (e.g. first-person hand, armor renderer) we auto-wrap this single part —
      * mark a start, emit, then immediately flush — so it is never invisible.
+     *
+     * <p>Children are dispatched via {@code ModelRenderer.render()} rather than
+     * recursing here directly. This re-enters {@code MixinModelRenderer}, which
+     * means any child part that should fall back to vanilla (e.g. the cow udder)
+     * will do so correctly instead of being force-batched.
      */
     @SuppressWarnings("unchecked")
     public void render(ModelRenderer renderer, float scale) {
@@ -270,10 +313,14 @@ public class EfficientModelRenderer {
             }
         }
 
+        // Dispatch children through ModelRenderer.render() rather than recursing
+        // directly into this method. This re-enters MixinModelRenderer so that
+        // per-part fallbacks (e.g. cow udder → vanilla) are honoured for children
+        // exactly as they are for top-level parts.
         List<ModelRenderer> children = renderer.childModels;
         if (children != null) {
             for (int i = 0, n = children.size(); i < n; i++) {
-                render(children.get(i), scale);
+                children.get(i).render(scale);
             }
         }
 

@@ -1,6 +1,7 @@
 package com.michaelsebero.efficiententities.mixin;
 
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -12,10 +13,11 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 
 /**
  * Redirects {@link ModelRenderer#render(float)} to the GPU-batched VBO path,
- * except when a chest tile-entity renderer is on the call stack, in which case
+ * except when a chest tile-entity renderer is on the call stack, or when this
+ * renderer's texture offset is (52, 0) — the vanilla cow udder — in which case
  * the vanilla display-list body is allowed to run normally.
  *
- * <h3>Why stack-trace detection only?</h3>
+ * <h3>Why stack-trace detection only for chests?</h3>
  * The transformer-injected {@code setChestMode()} approach is fragile: if the
  * obfuscation mapping differs between environments the injection is silently
  * skipped and chests break.  The stack-trace scan is a small, bounded cost
@@ -29,9 +31,23 @@ import net.minecraftforge.fml.relauncher.SideOnly;
  *   <li>Any class whose simple name ends with {@code "ChestRenderer"} –
  *       catches modded variants that follow the vanilla naming convention.</li>
  * </ul>
+ *
+ * <h3>Cow udder</h3>
+ * The udder {@link ModelRenderer} is constructed with
+ * {@code new ModelRenderer(this, 52, 0)}, storing 52 and 0 in the private
+ * {@code textureOffsetX} / {@code textureOffsetY} fields.  Shadowing those
+ * fields lets us check the offset at render time with a single comparison —
+ * no reflection, no stack scanning, no separate registry.  Any other renderer
+ * that happens to share offset (52, 0) will also fall through to vanilla, which
+ * is the safe default and causes no visible difference in practice.
  */
 @Mixin(ModelRenderer.class)
 public abstract class MixinModelRenderer {
+
+    // ---------------------------------------------------------------------- Shadowed fields
+
+    @Shadow private int textureOffsetX;
+    @Shadow private int textureOffsetY;
 
     // ---------------------------------------------------------------------- OptiFine detection
 
@@ -65,6 +81,11 @@ public abstract class MixinModelRenderer {
 
         // Chest mode: do NOT cancel — let vanilla display-list body run intact.
         if (isCalledFromChestRenderer()) return;
+
+        // Cow udder: texture offset (52, 0) is set by
+        //   new ModelRenderer(this, 52, 0)
+        // in vanilla ModelCow.  Do NOT cancel so vanilla draws this part.
+        if (textureOffsetX == 52 && textureOffsetY == 0) return;
 
         // Normal entity: cancel vanilla body and run the VBO path instead.
         ci.cancel();
