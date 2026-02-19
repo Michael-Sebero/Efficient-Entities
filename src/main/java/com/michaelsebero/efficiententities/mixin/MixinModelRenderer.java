@@ -21,14 +21,14 @@ import net.minecraftforge.fml.relauncher.SideOnly;
  * The transformer-injected {@code setChestMode()} approach is fragile: if the
  * obfuscation mapping differs between environments the injection is silently
  * skipped and chests break.  The stack-trace scan is a small, bounded cost
- * (≤10 frames, only at chest TESRs which are rare) and is 100 % reliable
+ * (≤10 frames, only at chest TESRs which are rare) and is 100% reliable
  * regardless of obfuscation.
  *
  * <h3>Classes treated as "chest"</h3>
  * <ul>
- *   <li>{@code TileEntityChestRenderer}   – normal chests</li>
- *   <li>{@code TileEntityEnderChestRenderer} – ender chests</li>
- *   <li>Any class whose simple name ends with {@code "ChestRenderer"} –
+ *   <li>{@code TileEntityChestRenderer}      — normal chests</li>
+ *   <li>{@code TileEntityEnderChestRenderer} — ender chests</li>
+ *   <li>Any class whose simple name ends with {@code "ChestRenderer"} —
  *       catches modded variants that follow the vanilla naming convention.</li>
  * </ul>
  *
@@ -72,6 +72,8 @@ public abstract class MixinModelRenderer {
 
     /**
      * @author michaelsebero
+     * @reason Redirect render calls to the GPU-batched VBO path.
+     *         Falls back to vanilla for OptiFine, chest TESRs, and the cow udder.
      */
     @Inject(method = "render", at = @At("HEAD"), cancellable = true)
     @SideOnly(Side.CLIENT)
@@ -109,7 +111,6 @@ public abstract class MixinModelRenderer {
         int limit = Math.min(stack.length, 10);
         for (int i = 3; i < limit; i++) {
             String className = stack[i].getClassName();
-            // Use the simple (unqualified) name for the suffix checks.
             int dot = className.lastIndexOf('.');
             String simpleName = dot >= 0 ? className.substring(dot + 1) : className;
             for (String suffix : CHEST_CLASS_SUFFIXES) {

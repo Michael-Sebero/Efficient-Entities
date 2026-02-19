@@ -20,7 +20,7 @@ import net.minecraft.client.model.ModelRenderer;
  *
  * <p>Also registers the cow's udder {@link ModelRenderer} as a vanilla-fallback
  * part. The udder is identified by its texture offset (52, 0) and its exact
- * box dimensions (4x3x2) which together are unique across all vanilla models.
+ * box dimensions (4×3×2) which together are unique across all vanilla models.
  */
 @Mixin(ModelBox.class)
 public class MixinModelBox implements Supplier<CubeGeometry> {
@@ -61,8 +61,7 @@ public class MixinModelBox implements Supplier<CubeGeometry> {
 
         // Register the cow udder renderer as a vanilla-fallback part.
         // Identified by texture offset + exact box dimensions — this combination
-        // is unique across all vanilla models so no instanceof check is needed
-        // (and ModelCow doesn't extend ModelRenderer, making instanceof illegal).
+        // is unique across all vanilla models so no instanceof check is needed.
         if (texU == UDDER_TEX_U && texV == UDDER_TEX_V
                 && dx == UDDER_DX && dy == UDDER_DY && dz == UDDER_DZ) {
             EfficientModelRenderer.registerVanillaRenderer(renderer);
