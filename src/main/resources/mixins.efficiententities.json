@@ -1,15 +1,17 @@
 {
-  "required": true,
-  "minVersion": "0.7.11",
+  "required": false,
+  "minVersion": "0.8",
   "package": "com.michaelsebero.efficiententities.mixin",
   "compatibilityLevel": "JAVA_8",
   "refmap": "mixins.efficiententities.refmap.json",
   "mixins": [],
   "client": [
+    "AccessorTexturedQuad",
     "MixinModelBox",
-    "MixinModelRenderer"
+    "MixinModelRenderer",
+    "MixinTileEntityRendererDispatcher"
   ],
   "injectors": {
-    "defaultRequire": 1
+    "defaultRequire": 0
   }
 }

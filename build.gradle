@@ -1,74 +1,118 @@
-buildscript {
-    repositories {
-        jcenter()
-        maven { url = "http://files.minecraftforge.net/maven" }
-        maven { url = "https://repo.spongepowered.org/maven" }
-    }
-    dependencies {
-        classpath 'net.minecraftforge.gradle:ForgeGradle:2.3-SNAPSHOT'
-        classpath 'org.spongepowered:mixingradle:0.6-SNAPSHOT'
-    }
+plugins {
+    id 'java'
+    id 'com.gtnewhorizons.retrofuturagradle' version '2.0.3'
 }
-apply plugin: 'net.minecraftforge.gradle.forge'
-apply plugin: 'org.spongepowered.mixin'
 
-version = "V1"
-group = "com.michaelsebero.efficiententities"
-archivesBaseName = "efficient-entities"
+def coremodClass = 'com.michaelsebero.efficiententities.asm.EfficientEntitiesCoremod'
+def mixinConfig  = 'mixins.efficiententities.json'
+def mixinRefmap  = 'mixins.efficiententities.refmap.json'
 
-sourceCompatibility = targetCompatibility = '1.8'
-compileJava {
-    sourceCompatibility = targetCompatibility = '1.8'
+version = mod_version
+group = 'com.michaelsebero.efficiententities'
+
+base {
+    archivesName = 'efficient-entities'
+}
+
+java {
+    // Java 8 bytecode runs on both Forge 1.12.2 and Cleanroom (Java 21+).
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(8)
+    }
+    withSourcesJar()
 }
 
 minecraft {
-    version = "1.12.2-14.23.4.2705"
-    runDir = "run"
-    mappings = "snapshot_20171003"
+    mcVersion = '1.12.2'
+    mcpMappingChannel = 'stable'
+    mcpMappingVersion = '39'
+    username = 'Developer'
 
-    makeObfSourceJar = false
+    injectedTags.put('VERSION', project.version)
+
+    // In production FML finds the coremod through the jar manifest; dev runs load classes from
+    // directories, so the coremod (and with it the transformer and mixins) must be named here.
+    extraRunJvmArguments.addAll("-Dfml.coreMods.load=${coremodClass}", '-Dmixin.checks.interfaces=true')
 }
 
-mixin {
-    add sourceSets.main, "mixins.efficiententities.refmap.json"
+tasks.named('injectTags') {
+    outputClassName = 'com.michaelsebero.efficiententities.Tags'
 }
 
 repositories {
-    maven { url = "https://repo.spongepowered.org/maven" }
+    maven {
+        name = 'CleanroomMC'
+        url = 'https://maven.cleanroommc.com'
+    }
+    mavenCentral()
+}
+
+// LWJGL APIs the mod must resolve against; checked by LwjglApiCompatibilityTest.
+// Cleanroom's compatibility layers only add members to LWJGL 3, so plain LWJGL 3 is the common ground.
+def lwjglEnvironments = [
+    'LWJGL 2.9.4 (Forge)'           : ['org.lwjgl.lwjgl:lwjgl:2.9.4-nightly-20150209'],
+    'LWJGL 3.3.6 (Cleanroom 0.3-0.4)': ['org.lwjgl:lwjgl:3.3.6', 'org.lwjgl:lwjgl-opengl:3.3.6'],
+    'LWJGL 3.4.1 (Cleanroom 0.5-0.6)': ['org.lwjgl:lwjgl:3.4.1', 'org.lwjgl:lwjgl-opengl:3.4.1'],
+    'LWJGL 3.4.3 (Cleanroom 0.7)'    : ['org.lwjgl:lwjgl:3.4.3', 'org.lwjgl:lwjgl-opengl:3.4.3'],
+]
+def lwjglConfigurations = lwjglEnvironments.collectEntries { env, modules ->
+    def configuration = configurations.create("lwjglApi" + env.replaceAll(/[^A-Za-z0-9]/, '')) {
+        canBeConsumed = false
+        transitive = false
+    }
+    modules.each { project.dependencies.add(configuration.name, it) }
+    [(env): configuration]
 }
 
 dependencies {
-    compile('org.spongepowered:mixin:0.7.11-SNAPSHOT') {
-        exclude module: 'launchwrapper'
-        exclude module: 'guava'
-        exclude module: 'gson'
-        exclude module: 'commons-io'
+    // MixinBooter supplies Mixin on Forge; Cleanroom ships it built in.
+    def mixinBooter = modUtils.enableMixins('zone.rong:mixinbooter:11.18', mixinRefmap)
+    implementation(mixinBooter) {
+        transitive = false
+    }
+    // Transitive on purpose: since 11.0 the Mixin annotation processor (refmap generation)
+    // lives in MixinBooter's CleanMix dependency rather than in the MixinBooter jar itself.
+    annotationProcessor mixinBooter
+
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.3'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    // The game supplies LWJGL at runtime, so RFG only puts it on the compile classpath.
+    testRuntimeOnly 'org.lwjgl.lwjgl:lwjgl:2.9.4-nightly-20150209'
+    testRuntimeOnly 'org.lwjgl.lwjgl:lwjgl_util:2.9.4-nightly-20150209'
+}
+
+processResources {
+    inputs.property 'version', project.version
+    filesMatching('mcmod.info') {
+        expand 'version': project.version
     }
 }
 
 jar {
     manifest {
         attributes(
-            'FMLCorePlugin': 'com.michaelsebero.efficiententities.asm.EfficientEntitiesCoremod',
+            'FMLCorePlugin': coremodClass,
             'FMLCorePluginContainsFMLMod': 'true',
-            'TweakClass': 'org.spongepowered.asm.launch.MixinTweaker',
-            'TweakOrder': '0',
-            'MixinConfigs': 'efficiententities.mixins.json',
-            'ForceLoadAsMod': 'true'
+            // Read by MixinBooter 11+ and Cleanroom. MixinBooter 10 instead queries the coremod's
+            // IEarlyMixinLoader; Mixin ignores the second registration of the same config.
+            'MixinConfigs': mixinConfig
         )
     }
 }
 
-processResources {
-    inputs.property "version", project.version
-    inputs.property "mcversion", project.minecraft.version
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
 
-    from(sourceSets.main.resources.srcDirs) {
-        include 'mcmod.info'
-        expand 'version':project.version, 'mcversion':project.minecraft.version
-    }
+test {
+    useJUnitPlatform()
+    // Minecraft's log4j config writes logs/ relative to the working directory.
+    def testRunDir = layout.buildDirectory.dir('test-run')
+    workingDir = testRunDir
+    doFirst { testRunDir.get().asFile.mkdirs() }
 
-    from(sourceSets.main.resources.srcDirs) {
-        exclude 'mcmod.info'
+    lwjglConfigurations.each { env, configuration ->
+        inputs.files(configuration)
+        doFirst { systemProperty "lwjgl.env.${env}", configuration.asPath }
     }
 }

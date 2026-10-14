@@ -1,5 +1,8 @@
 package com.michaelsebero.efficiententities.util;
 
+import java.nio.FloatBuffer;
+import java.util.Arrays;
+
 /**
  * Lightweight array-backed 4×4 matrix stack for accumulating per-bone
  * transforms during entity rendering.
@@ -20,10 +23,10 @@ package com.michaelsebero.efficiententities.util;
  */
 public final class MatrixStack {
 
-    private static final int MAX_DEPTH = 32;
+    private static final int INITIAL_DEPTH = 32;
 
     /** Flat storage: {@code stack[top * 16 .. top * 16 + 15]} is the active matrix. */
-    private final float[] stack = new float[MAX_DEPTH * 16];
+    private float[] stack = new float[INITIAL_DEPTH * 16];
     private int top = 0;
 
     public MatrixStack() {
@@ -32,19 +35,17 @@ public final class MatrixStack {
 
     // ------------------------------------------------------------------ lifecycle
 
-    /**
-     * Reset to a single identity matrix at the base of the stack.
-     * Called once per entity batch from {@link
-     * com.michaelsebero.efficiententities.renderer.EfficientModelRenderer#startBatch()}.
-     */
+    /** Reset to a single identity matrix at the base of the stack. */
     public void reset() {
         top = 0;
         writeIdentity(0);
     }
 
-    /** Push a copy of the current top matrix. */
+    /** Push a copy of the current top matrix.  Grows for deep (modded) bone hierarchies. */
     public void push() {
-        System.arraycopy(stack, top * 16, stack, (top + 1) * 16, 16);
+        int next = (top + 1) * 16;
+        if (next + 16 > stack.length) stack = Arrays.copyOf(stack, stack.length * 2);
+        System.arraycopy(stack, top * 16, stack, next, 16);
         top++;
     }
 
@@ -53,25 +54,33 @@ public final class MatrixStack {
         top--;
     }
 
-    // ------------------------------------------------------------------ matrix element accessors
+    // ------------------------------------------------------------------ element access
 
-    /** Row 0 – world X coefficients (m00, m01, m02) and translation m03. */
-    public float m00() { return stack[top * 16]; }
-    public float m01() { return stack[top * 16 + 1]; }
-    public float m02() { return stack[top * 16 + 2]; }
-    public float m03() { return stack[top * 16 + 3]; }
+    /** Backing array of the top matrix; rows 0–2 start at {@link #offset()}. */
+    public float[] array() {
+        return stack;
+    }
 
-    /** Row 1 – world Y coefficients and translation m13. */
-    public float m10() { return stack[top * 16 + 4]; }
-    public float m11() { return stack[top * 16 + 5]; }
-    public float m12() { return stack[top * 16 + 6]; }
-    public float m13() { return stack[top * 16 + 7]; }
+    /** Offset of the top matrix within {@link #array()}. */
+    public int offset() {
+        return top * 16;
+    }
 
-    /** Row 2 – world Z coefficients and translation m23. */
-    public float m20() { return stack[top * 16 + 8]; }
-    public float m21() { return stack[top * 16 + 9]; }
-    public float m22() { return stack[top * 16 + 10]; }
-    public float m23() { return stack[top * 16 + 11]; }
+    /**
+     * Writes the top matrix into {@code dst} in OpenGL's column-major order,
+     * ready for {@code glMultMatrix}.  Leaves {@code dst} flipped.
+     */
+    public void store(FloatBuffer dst) {
+        float[] m = stack;
+        int b = top * 16;
+        dst.clear();
+        for (int col = 0; col < 4; col++) {
+            for (int row = 0; row < 4; row++) {
+                dst.put(m[b + row * 4 + col]);
+            }
+        }
+        dst.flip();
+    }
 
     // ------------------------------------------------------------------ transforms
 
